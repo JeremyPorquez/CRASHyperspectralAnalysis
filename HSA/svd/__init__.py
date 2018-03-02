@@ -59,14 +59,6 @@ def calc_svd(usv,shape=(3,100,100),value=0,singular_values=10):
     return filtered_image
 
 class Image(object):
-    # def __getattribute__(self, item):
-    #     if item == 'image':
-    #         if self.svd_image is not None:
-    #             return self.svd_image
-    #         else:
-    #             return self.raw_image
-    #     else:
-    #         object.__getattribute__(self, item)
 
     def __init__(self, data):
 
@@ -80,29 +72,29 @@ class Image(object):
         self.usv = None
         self.singular_values = None
 
-    def calc_svd(self, singular_values=None, anscombe_results=True):
+    def calc_svd(self, singular_values=None, anscombe_results=True, signal=None):
         if singular_values is None:
             if self.singular_values is None:
                 singular_values = 10
             else:
                 singular_values = self.singular_values
 
-        pool = ThreadPool(processes=1)
+        pool = ThreadPool()
         svd_image = self.raw_image
 
-        if anscombe_results:
-            svd_image = anscombe(svd_image)
+        def process(svd_image, full_matrices, singular_values, full_result, signal):
 
-        args = (svd_image, False, singular_values, True)
-        threaded_svd_calculation = pool.apply_async(svd_filter, args)
-        svd_image, self.usv = threaded_svd_calculation.get()
+            if anscombe_results:
+                svd_image = anscombe(svd_image)
+            svd_image, self.usv = svd_filter(svd_image, full_matrices, singular_values, full_result)
+            if anscombe_results:
+                svd_image = inverse_anscombe(svd_image)
+            self.svd_image = svd_image
+            signal.emit()
 
-        if anscombe_results:
-            svd_image = inverse_anscombe(svd_image)
+        args = (svd_image, False, singular_values, True,signal)
+        pool.apply_async(process, args)
 
-        self.svd_image = svd_image
-
-        return self.svd_image
 
     def calc_svd_single(self,singular_value=-1):
         if self.usv is None:
